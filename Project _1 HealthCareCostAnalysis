@@ -1,0 +1,132 @@
+##Project: HealthCare Cost Analysis :
+
+setwd("C:/Users/Workstation/OneDrive/Desktop/Data Science_Material")
+getwd()
+library(readxl)
+
+## Reading Excel from Local
+
+Hospital_Data <-read_xlsx("Hospital_Cost_Analysis.xlsx")
+View(Hospital_Data)
+
+summary(Hospital_Data)
+
+hist(Hospital_Data$AGE, col= c('darkblue','lightblue'),breaks = 17, main= 'Age category of people who frequently visit the Hospital',xlab='AGE', border = 'black',xlim = c(0,20), ylim = c(0,350))
+
+class(Hospital_Data$AGE)
+AGE <- as.factor(Hospital_Data$AGE)
+summary(AGE)
+
+### Here, We analyze the maximum expenditure categorized by Age using Aggregate function
+
+age_category_freqently_visits <- aggregate(TOTCHG ~ AGE, FUN = sum, data = Hospital_Data)
+max(aggregate(Hospital_Data$TOTCHG ~ Hospital_Data$AGE, FUN = sum))
+
+age_category_freqently_visits[which.max(age_category_freqently_visits$TOTCHG),]
+
+## Age Category : '0-1' (Infants) frequently visit the hospital
+## with maximum expenditure of '678118', as Histogram shows frequency 
+## of Infants (0-1) is >300.
+
+class(Hospital_Data$APRDRG)
+as.factor(Hospital_Data$APRDRG)
+
+summary(as.factor(Hospital_Data$APRDRG))
+max(summary(as.factor(Hospital_Data$APRDRG)))
+
+hist(Hospital_Data$APRDRG, main = 'Diagnosis-Related Groups frequency', xlab = 'Diagnosis-Related Group', col= c('darkgreen','green'))
+Diagnosis_Cost <- aggregate(TOTCHG ~ APRDRG, FUN = sum, data = Hospital_Data)
+max(Diagnosis_Cost <- aggregate(TOTCHG ~ APRDRG, FUN = sum, data = Hospital_Data))
+
+Diagnosis_Cost[which.max(Diagnosis_Cost$TOTCHG),]
+
+
+#CONCLUSION:-From the above output we conclude that 640 has the maximum hospitalization (267 out of 500) and also has the highest expenditure cost(437978).
+
+summary(as.factor(Hospital_Data$RACE))
+
+anyNA(Hospital_Data)
+Hospital_Data <- na.omit(Hospital_Data)
+anyNA(Hospital_Data)
+
+## As can be seen 484 patients out of 499 fall under group 1, showing that the number of observations for 1 category is way higher than others - hence data is skewed. This will only affect the results from linear regression or ANOVA analysis
+
+cor(Hospital_Data$TOTCHG, Hospital_Data$RACE)
+## correlation value is too less indicates that there is no relation
+
+Race_Influence <- lm(Hospital_Data$TOTCHG ~ Hospital_Data$RACE)
+summary(Race_Influence)
+
+#R- Squared Value is 0.0003299, very less than 0.5
+#pValue is 0.69 it is much higher than 0.5
+#We can say that race doesn't affect the hospitalization costs
+
+## Analyzing Using ANOVA
+
+Race_Influence_AOV <- aov(TOTCHG ~ RACE, data = Hospital_Data)
+Race_Influence_AOV
+
+summary(Race_Influence_AOV)
+
+#The residual variance (deviation from original) (of all other variables) is very high. This implies that there is very little influence from RACE on hospitalization costs
+#As can be seen, the degree of freedom (Df) for RACE is 1 and that of residuals is 497 observations
+#The F-Value, the test statistic is 0.16 which is much less than 0.5 showing that RACE doesn't affect teh hospitalization cost.
+#The Pr(>F), the p_value of 0.69 is high confirming that RACE does not affect hospitalization cost.
+
+summary(Hospital_Data$FEMALE)
+
+#As can be seen here, there is equal distribution of male and female in the group
+
+Age_Gender_Influence_Cost <- lm(TOTCHG ~ AGE + FEMALE, data = Hospital_Data)
+summary(Age_Gender_Influence_Cost)
+
+#Since the pValues of AGE is much lesser than 0.05, the ideal statistical significance level, and it also has three stars (***) next to it, it means AGE has the most statitical significance
+#Similarly, gender is also less than 0.05.
+#Hence, we can conclude that the model is statistically significant
+
+Age_Gender_Race_Inf_lModel <- lm(LOS ~ AGE + FEMALE + RACE, data = Hospital_Data)
+Age_Gender_Race_Inf_lModel
+
+summary(Age_Gender_Race_Inf_lModel)
+
+#R - Squared value = 0.007898 (<0.05)
+#The p-value is higher than 0.05 for age, gender and race, indicating there is no linear relationship between these variables and length of stay.
+#Hence, age, gender and race cannot be used to predict the length of stay of inpatients.
+
+library(corrplot)
+library(car)
+library(MLmetrics)
+
+factors_Inf_cost <- cor(Hospital_Data[,1:6])
+View(factors_Inf_cost)
+
+cor_plot <- corrplot(factors_Inf_cost, method = "color", outline = T, cl.pos = 'n', rect.col = "black",  tl.col = "indianred4", addCoef.col = "black", number.digits = 2, number.cex = 0.60, tl.cex = 0.7, cl.cex = 1, col = colorRampPalette(c("green4","white","red"))(100))
+
+#As it is apparent from the coefficient values, Age, Length of stay (LOS) and patient refined diagnosis related groups(APRDRG) have three stars (***) next to it. So they are the ones with statistical significance
+#Also, RACE is the least significant. build a model after removing RACE
+
+# Lets clean the data 
+
+Hospital_Data <- subset(Hospital_Data, select = -c(RACE, FEMALE))
+names(Hospital_Data)
+
+comp_analysis = lm(formula = TOTCHG ~ . , data = Hospital_Data)
+summary(comp_analysis)
+
+#Since APRDRG has -ve t-value, dropping it.
+
+comp_analysis_1 <- lm(formula = TOTCHG ~ AGE + LOS, data = Hospital_Data)
+summary(comp_analysis_1)
+
+#Removing Race and gender doesn't change the R2 value. It doesn't impact cost
+#Removing APRDRG in model comp_analysis_1 decreases the standard error.HENCE comp_analysis holds good.
+# So, AGE, LOS, APRDRG collectively influence the hospital price. 
+
+#Analysis Conclusion:
+#  As is evident in the multiple models above, health care costs is dependent on age, length of stay and the diagnosis type.
+#Healthcare cost is the most for patients in the 0-1 yrs age group category
+#Maximum expenditure for 0-1 yr is 678118
+#Length of Stay increases the hospital cost
+#All Patient Refined Diagnosis Related Groups also affects healthcare costs
+#640 diagnosis related group had a max cost of 437978
+#Race or gender doesn't have that much impact on hospital cost
